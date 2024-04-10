@@ -10,3 +10,6 @@ __pycache__
 rocksdb/_rocksdb.cpp
 
 build.sh
+rocksdb/tests/test.db
+dist
+test.db/

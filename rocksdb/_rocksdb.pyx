@@ -13,7 +13,7 @@ from cpython.bytes cimport PyBytes_FromString
 from cpython.bytes cimport PyBytes_FromStringAndSize
 from cpython.unicode cimport PyUnicode_Decode
 
-from .std_memory cimport shared_ptr
+from .std_memory cimport shared_ptr, unique_ptr
 from . cimport options
 from . cimport merge_operator
 from . cimport comparator
@@ -47,6 +47,8 @@ from .interfaces import AssociativeMergeOperator as IAssociativeMergeOperator
 from .interfaces import Comparator as IComparator
 from .interfaces import SliceTransform as ISliceTransform
 
+from .transaction_log cimport TransactionLogIterator
+
 import traceback
 from .errors import Error
 from .errors import NotFound
@@ -61,13 +63,16 @@ import weakref
 
 cdef extern from "cpp/utils.hpp" namespace "py_rocks":
     cdef const Slice* vector_data(vector[Slice]&)
+    cdef unique_ptr[T] mk_unique[T]()
+    cdef unique_ptr[T] && unique_move[T](unique_ptr[T] &&)
+    cdef void unique_copy[T](unique_ptr[T] &, unique_ptr[T] &)
 
 # Prepare python for threaded usage.
 # Python callbacks (merge, comparator)
 # could be executed in a rocksdb background thread (eg. compaction).
 cdef extern from "Python.h":
-    void PyEval_InitThreads()
-PyEval_InitThreads()
+    void Py_Initialize()
+Py_Initialize()
 
 ## Here comes the stuff to wrap the status to exception
 cdef check_status(const Status& st):
@@ -1385,6 +1390,30 @@ cdef class WriteBatch(object):
 
 
 @cython.internal
+cdef class TransactionLogIter2(object):
+    cdef unique_ptr[TransactionLogIterator] it
+    def __init__(self):
+        pass
+
+@cython.internal
+cdef class TransactionLogIter(object):
+    cdef unique_ptr[TransactionLogIterator] it
+
+    def __iter__(self):
+        print(1110)
+        return self
+
+    def __next__(self):
+        print(1111)
+        v = self.it.get()
+        if not v.Valid():
+            raise StopIteration()
+        b = v.GetBatch()
+        v.Next()
+        return 1
+
+
+@cython.internal
 cdef class WriteBatchIterator(object):
     # Need a reference to the WriteBatch.
     # The BatchItems are only pointers to the memory in WriteBatch.
@@ -1571,6 +1600,22 @@ cdef class DB(object):
     @property
     def column_families(self):
         return [handle.weakref for handle in self.cf_handles]
+
+    @property
+    def latestSequenceNumber(self):
+        return self.db.GetLatestSequenceNumber()
+
+    def getUpdateSince(self, n : int):
+        cdef unique_ptr[TransactionLogIterator] it
+        cdef unique_ptr[TransactionLogIterator]* it_ptr = &it
+        cdef Status st
+        st = self.db.GetUpdatesSince(n, it_ptr)
+        check_status(st)
+        # TransactionLogIter(it)
+        iter = TransactionLogIter()
+        unique_copy(iter.it, it)
+        print(00)
+        return iter
 
     def get_column_family(self, bytes name):
         for handle in self.cf_handles:

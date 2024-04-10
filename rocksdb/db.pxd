@@ -8,6 +8,8 @@ from .types cimport SequenceNumber
 from .slice_ cimport Slice
 from .snapshot cimport Snapshot
 from .iterator cimport Iterator
+from .std_memory cimport unique_ptr
+from .transaction_log cimport TransactionLogIterator
 
 cdef extern from "rocksdb/write_batch.h" namespace "rocksdb":
     cdef cppclass WriteBatch:
@@ -170,9 +172,10 @@ cdef extern from "rocksdb/db.h" namespace "rocksdb":
         Status DisableFileDeletions() except+ nogil
         Status EnableFileDeletions() except+ nogil
         Status Close() except+ nogil
+        SequenceNumber GetLatestSequenceNumber() except+ nogil
+        Status GetUpdatesSince( SequenceNumber seq_number, unique_ptr[TransactionLogIterator]*) except+ nogil
 
         # TODO: Status GetSortedWalFiles(VectorLogPtr& files)
-        # TODO: SequenceNumber GetLatestSequenceNumber()
         # TODO: Status GetUpdatesSince(
                   # SequenceNumber seq_number,
                   # unique_ptr[TransactionLogIterator]*)
