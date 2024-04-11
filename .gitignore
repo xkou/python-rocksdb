@@ -12,4 +12,4 @@ rocksdb/_rocksdb.cpp
 build.sh
 rocksdb/tests/test.db
 dist
-test.db/
+rocksdb/tests/test2.db

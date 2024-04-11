@@ -4,12 +4,13 @@ db = rocksdb.DB('test.db', rocksdb.Options(create_if_missing=True, wal_size_limi
 k = randbytes(8)
 db.put(k, randbytes(8))
 print(k, db.get(k))
-print(db.latestSequenceNumber)
+print('seq', db.latestSequenceNumber)
 while 1:
-    it = db.getUpdateSince(40)
+    it = db.getUpdateSince(db.latestSequenceNumber)
     for seq, data in it:
         # print(seq, data)
         pass
+    break
 
 import os
 os.system('rm -rf test2.db')
