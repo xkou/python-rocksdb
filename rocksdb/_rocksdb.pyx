@@ -47,8 +47,6 @@ from .interfaces import AssociativeMergeOperator as IAssociativeMergeOperator
 from .interfaces import Comparator as IComparator
 from .interfaces import SliceTransform as ISliceTransform
 
-from .transaction_log cimport TransactionLogIterator
-
 import traceback
 from .errors import Error
 from .errors import NotFound
@@ -64,7 +62,7 @@ import weakref
 cdef extern from "cpp/utils.hpp" namespace "py_rocks":
     cdef const Slice* vector_data(vector[Slice]&)
     cdef unique_ptr[T] mk_unique[T]()
-    cdef unique_ptr[T] && unique_move[T](unique_ptr[T] &&)
+    cdef unique_ptr[T] & unique_move[T](unique_ptr[T] &)
     cdef void unique_copy[T](unique_ptr[T] &, unique_ptr[T] &)
 
 # Prepare python for threaded usage.
@@ -411,7 +409,7 @@ cdef Slice slice_transform_callback(
     void* ctx,
     logger.Logger* log,
     string& error_msg,
-    const Slice& src) with gil:
+    const Slice& src) noexcept with gil:
 
     cdef size_t offset
     cdef size_t size
@@ -1388,29 +1386,20 @@ cdef class WriteBatch(object):
     def __iter__(self):
         return WriteBatchIterator(self)
 
-
-@cython.internal
-cdef class TransactionLogIter2(object):
-    cdef unique_ptr[TransactionLogIterator] it
-    def __init__(self):
-        pass
-
 @cython.internal
 cdef class TransactionLogIter(object):
-    cdef unique_ptr[TransactionLogIterator] it
+    cdef unique_ptr[db.TransactionLogIterator] it
 
     def __iter__(self):
-        print(1110)
         return self
 
     def __next__(self):
-        print(1111)
         v = self.it.get()
         if not v.Valid():
             raise StopIteration()
         b = v.GetBatch()
         v.Next()
-        return 1
+        return (b.sequence , b.writeBatchPtr.get().Data())
 
 
 @cython.internal
@@ -1606,15 +1595,14 @@ cdef class DB(object):
         return self.db.GetLatestSequenceNumber()
 
     def getUpdateSince(self, n : int):
-        cdef unique_ptr[TransactionLogIterator] it
-        cdef unique_ptr[TransactionLogIterator]* it_ptr = &it
+        cdef unique_ptr[db.TransactionLogIterator] it
+        cdef unique_ptr[db.TransactionLogIterator]* it_ptr = &it
         cdef Status st
         st = self.db.GetUpdatesSince(n, it_ptr)
         check_status(st)
         # TransactionLogIter(it)
         iter = TransactionLogIter()
         unique_copy(iter.it, it)
-        print(00)
         return iter
 
     def get_column_family(self, bytes name):

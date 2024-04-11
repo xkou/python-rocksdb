@@ -9,7 +9,6 @@ from .slice_ cimport Slice
 from .snapshot cimport Snapshot
 from .iterator cimport Iterator
 from .std_memory cimport unique_ptr
-from .transaction_log cimport TransactionLogIterator
 
 cdef extern from "rocksdb/write_batch.h" namespace "rocksdb":
     cdef cppclass WriteBatch:
@@ -25,6 +24,19 @@ cdef extern from "rocksdb/write_batch.h" namespace "rocksdb":
         void Clear() except+ nogil
         const string& Data() except+ nogil
         int Count() except+ nogil
+
+cdef extern from "rocksdb/transaction_log.h" namespace "rocksdb":
+    cdef cppclass BatchResult:
+        BatchResult()
+        BatchResult(const BatchResult&)
+        SequenceNumber sequence
+        unique_ptr[WriteBatch] writeBatchPtr
+
+    cdef cppclass TransactionLogIterator:
+        TransactionLogIterator()
+        cpp_bool Valid() nogil
+        void Next() nogil
+        BatchResult GetBatch() nogil const
 
 cdef extern from "cpp/write_batch_iter_helper.hpp" namespace "py_rocks":
     cdef enum BatchItemOp "RecordItemsHandler::Optype":
@@ -233,3 +245,4 @@ cdef extern from "rocksdb/db.h" namespace "rocksdb":
 
 cdef extern from "rocksdb/convenience.h" namespace "rocksdb":
     void CancelAllBackgroundWork(DB*, cpp_bool) except+ nogil
+

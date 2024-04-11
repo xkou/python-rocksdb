@@ -1,10 +1,10 @@
 import rocksdb
+from random import randbytes
 db = rocksdb.DB('test.db', rocksdb.Options(create_if_missing=True, wal_size_limit_mb=10))
-db.put(b'a', b'data')
-print(db.get(b'a'))
+k = randbytes(8)
+db.put(k, randbytes(8))
+print(k, db.get(k))
 print(db.latestSequenceNumber)
-it = db.getUpdateSince(2)
-print('it', it)
-print('it', next(it))
-for e in it:
-    print('!!', e)
+it = db.getUpdateSince(30)
+for seq, data in it:
+    pass
