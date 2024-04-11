@@ -8,14 +8,16 @@ namespace py_rocks {
     }
 
     template <typename T>
-    std::unique_ptr<T> mk_unique(){
-        return std::make_unique<T>();
-    }
-
-    template <typename T>
     std::unique_ptr<T> && unique_move(std::unique_ptr<T> && t){
         return std::move(t);
     }
+
+    template <typename T>
+    T && std_move(T & t){
+        return std::move(t);
+    }
+
+
 
     template <typename T>
     void unique_copy(std::unique_ptr<T> & a, std::unique_ptr<T> & b){

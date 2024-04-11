@@ -5,7 +5,7 @@ from libcpp.deque cimport deque
 from libcpp.vector cimport vector
 from cpython cimport bool as py_bool
 from libcpp cimport bool as cpp_bool
-from libc.stdint cimport uint32_t
+from libc.stdint cimport uint32_t, uint64_t
 from cython.operator cimport dereference as deref
 from cpython.bytes cimport PyBytes_AsString
 from cpython.bytes cimport PyBytes_Size
@@ -61,9 +61,9 @@ import weakref
 
 cdef extern from "cpp/utils.hpp" namespace "py_rocks":
     cdef const Slice* vector_data(vector[Slice]&)
-    cdef unique_ptr[T] mk_unique[T]()
     cdef unique_ptr[T] & unique_move[T](unique_ptr[T] &)
     cdef void unique_copy[T](unique_ptr[T] &, unique_ptr[T] &)
+    cdef T & std_move[T](T &)
 
 # Prepare python for threaded usage.
 # Python callbacks (merge, comparator)
@@ -1600,10 +1600,37 @@ cdef class DB(object):
         cdef Status st
         st = self.db.GetUpdatesSince(n, it_ptr)
         check_status(st)
-        # TransactionLogIter(it)
         iter = TransactionLogIter()
-        unique_copy(iter.it, it)
+     #   unique_copy(iter.it, it)
+        iter.it = std_move(it)
         return iter
+
+    def checkpoint(self, path):
+        cdef Status st
+        cdef db.Checkpoint * cp
+        st = db.Checkpoint_Create(self.db, &cp)
+        check_status(st)
+        cdef uint64_t seq
+        st = cp.CreateCheckpoint(path_to_string(path), 0, &seq)
+        check_status(st)
+        return seq
+
+    def putLogData(self, data):
+        cdef Status st
+        cdef options.WriteOptions opts
+        opts.sync = True
+        opts.disableWAL = False
+        opts.ignore_missing_column_families = False
+        opts.no_slowdown = False
+        opts.low_pri = False
+
+        cdef db.WriteBatch * batch = new db.WriteBatch(bytes_to_string(data))
+        cdef Slice ds = bytes_to_slice(data)
+     #   st = batch.PutLogData(ds)
+     #   check_status(st)
+        with nogil:
+            st = self.db.Write(opts, batch)
+        check_status(st)
 
     def get_column_family(self, bytes name):
         for handle in self.cf_handles:
@@ -1938,6 +1965,8 @@ cdef class DB(object):
 
     def snapshot(self):
         return Snapshot(self)
+
+
 
     def get_property(self, prop, ColumnFamilyHandle column_family=None):
         cdef string value

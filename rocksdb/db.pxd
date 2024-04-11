@@ -20,7 +20,7 @@ cdef extern from "rocksdb/write_batch.h" namespace "rocksdb":
         void Merge(ColumnFamilyHandle*, const Slice&, const Slice&) except+ nogil
         void Delete(const Slice&) except+ nogil
         void Delete(ColumnFamilyHandle*, const Slice&) except+ nogil
-        void PutLogData(const Slice&) except+ nogil
+        Status PutLogData(const Slice&) except+ nogil
         void Clear() except+ nogil
         const string& Data() except+ nogil
         int Count() except+ nogil
@@ -246,3 +246,9 @@ cdef extern from "rocksdb/db.h" namespace "rocksdb":
 cdef extern from "rocksdb/convenience.h" namespace "rocksdb":
     void CancelAllBackgroundWork(DB*, cpp_bool) except+ nogil
 
+cdef extern from "rocksdb/utilities/checkpoint.h" namespace "rocksdb":
+    cdef cppclass Checkpoint:
+        Status CreateCheckpoint(const string& , uint64_t,  uint64_t* )
+
+    Status Checkpoint_Create "rocksdb::Checkpoint::Create" (DB*, Checkpoint**) except+ nogil
+    
